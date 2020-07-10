@@ -171,8 +171,9 @@ end
 colormap(jet)
 
 
-%% Tensor
+%% ULTRA-V
 
+% Initializing A0 and M0 tensors:
 A0_tensor = matrixToHCube(A_SCLSU,m,n,1);
 % A0_tensor = matrixToHCube(A_FCLSU',m,n,1);
 count = 1;
@@ -187,15 +188,12 @@ for n2=1:n
     end
 end
 
-
+% Regularization parameter search ranges:
 %lambda_A_search = [0.3];
 % lambda_A_search = [0.1];
 lambda_A_search = [0.00001];
 %lambda_M_search = [0.8];
 lambda_M_search = [0.8];
-rank_A_search = [30];
-% rank_M_search = [10];
-rank_M_search = [40];
 varepsilon =1e-3;
 maxItt = 40;
 
@@ -206,13 +204,12 @@ varepsilon =1e-4;
 lambda_A_search = 0.00001;
 lambda_M_search = 0.01;
 
+% Estimating tensor ranks:
+rank_A = intialTensorRankEst(A0_tensor)
+rank_M = intialTensorRankEst(MM_tensor)
 
-rank_A_search = intialTensorRankEst(A0_tensor)
-rank_M_search = intialTensorRankEst(MM_tensor)
-% rank_M_search = intialTensorRankEst(MM_tensor,22)
 
-
-Nruns = length(lambda_A_search)*length(lambda_M_search)*length(rank_A_search)* length(rank_M_search); 
+Nruns = length(lambda_A_search)*length(lambda_M_search); 
 
 FullTensor_Results = zeros(Nruns,6);
 fprintf('Nruns = %d\n\n', Nruns);
@@ -222,35 +219,24 @@ acos_r_tensor = 0;
 count = 1;
 for lambda_A = lambda_A_search
     for lambda_M = lambda_M_search
-        for rank_A = rank_A_search
-            for rank_M = rank_M_search
-                tic
-                [ Mt, At , Pt, Qt] = unmixing_lr_reg(Y_cube, lambda_M, lambda_A, rank_M, rank_A, A0_tensor,MM_tensor,maxItt,verbose, varepsilon);
-                toc
-%                 rmse_a = sqrt(frob(alphas_cube - At,'squared')/(N*R));
-%                 rmse_m =  sqrt(frob(Mvs_t - Mt,'squared')/(N*L*R));
-%                 rmse_a = sqrt((norm(alphas_cube(:) - At(:)).^2)/(N*R));
-%                 rmse_m =  sqrt((norm(Mvs_t(:) - Mt(:)).^2)/(N*L*R));
-%                 M_T = row2col_lexico_order(Mt,m,n);
-%                 A_T = row2col_lexico_order(At,m,n);
-%                 rmse_a = RMSEAndSTDForMatrix(alphas_cube(:),At(:));
-%                 rmse_m =  RMSEAndSTDForMatrix(Mvs_t(:),Mt(:));
-                acos_r_tensor = 0;
-                for ll=1:m,
-                    for jj=1:n
-                        R_tensor(ll,jj,:) = squeeze(Mt(ll,jj,:,:))*squeeze(At(ll,jj,:));
-                        acos_r_tensor = acos_r_tensor + acos(squeeze(Y_cube(ll,jj,:))'*squeeze(R_tensor(ll,jj,:))/( norm(squeeze(Y_cube(ll,jj,:)))*norm(squeeze(R_tensor(ll,jj,:))) ) );
-                    end                    
-                end
-                acos_r_tensor = acos_r_tensor/N;
-                %rmse_r = RMSEAndSTDForMatrix(data(:), R_tensor(:));
-                rmse_r = (norm(Y_cube(:)- R_tensor(:))^2)/(N*L);
-
-                FullTensor_Results(count, :) = [lambda_A,lambda_M, rank_A, rank_M, rmse_r, acos_r_tensor];
-                FullTensor_Results(count, :)
-                count = count + 1;
-            end
+        tic
+        [ Mt, At , Pt, Qt] = unmixing_lr_reg(Y_cube, lambda_M, lambda_A, rank_M, rank_A, A0_tensor,MM_tensor,maxItt,verbose, varepsilon);
+        toc
+        acos_r_tensor = 0;
+        for ll=1:m
+            for jj=1:n
+                R_tensor(ll,jj,:) = squeeze(Mt(ll,jj,:,:))*squeeze(At(ll,jj,:));
+                acos_r_tensor = acos_r_tensor + acos(squeeze(Y_cube(ll,jj,:))'*squeeze(R_tensor(ll,jj,:))/( norm(squeeze(Y_cube(ll,jj,:)))*norm(squeeze(R_tensor(ll,jj,:))) ) );
+            end                    
         end
+        acos_r_tensor = acos_r_tensor/N;
+        %rmse_r = RMSEAndSTDForMatrix(data(:), R_tensor(:));
+        rmse_r = (norm(Y_cube(:)- R_tensor(:))^2)/(N*L);
+
+        FullTensor_Results(count, :) = [lambda_A,lambda_M, rank_A, rank_M, rmse_r, acos_r_tensor];
+        FullTensor_Results(count, :)
+        count = count + 1;
+
     end
 end
 
@@ -273,7 +259,7 @@ colormap(jet)
 
 
 
-%%
+%% Results and plots:
 A_FCLSU_im = matrixToHCube(A_FCLSU', nRow, nCol, invRC);
 A_SCLSU_im = matrixToHCube(A_SCLSU, nRow, nCol, invRC);
 
@@ -287,7 +273,7 @@ FSize = 16;
 
 fh = figure;
 [ha, pos] = tight_subplot(4, 3, 0.01, 0.1, 0.1);
-for i=1:4,
+for i=1:4
     axes(ha(1 + (i-1)*3));
     imagesc(A_FCLSU_im(:,:,i),[0 1])
     set(gca,'ytick',[],'xtick',[])
@@ -378,7 +364,7 @@ for i=1:R
 %     plot(temp(:,1:15:end),'color', ones(1,3)*0.9)
     % plot(temp(:,randsample(N,100)),'color', ones(1,3)*0.9
     
-    if i==1,
+    if i==1
 %         plot(temp(:,randsample(N,N/2))*0.8,'color', ones(1,3)*0.9)
         plot(temp(:,randsample(N,200))*0.8,'color', ones(1,3)*0.9)
          hold on
@@ -456,10 +442,10 @@ fff = figure;
 for i = 1:R
     tempM = hCubeToMatrix(Mt(:,:,:,i), invRC);
     tempP = hCubeToMatrix(Pt(:,:,:,i), invRC);
-    if i==1,
+    if i==1
         tempM = tempM* 0.8;
         tempP = tempP* 0.8;
-    elseif i==2,
+    elseif i==2
         tempM = tempM* 0.6;
         tempP = tempP* 0.6;
     end
